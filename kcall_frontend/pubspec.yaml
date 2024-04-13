@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   flutter_webrtc: ^0.9.48+hotfix.1
   web_socket_channel: ^2.4.4
+  connectivity_plus: ^6.0.2
 
 dev_dependencies:
   flutter_test:
