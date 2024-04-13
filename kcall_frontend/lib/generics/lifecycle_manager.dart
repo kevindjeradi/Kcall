@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart';
 
 class LifecycleManager extends StatefulWidget {
   final Widget child;
@@ -15,7 +17,9 @@ class LifecycleManager extends StatefulWidget {
 
 class LifecycleManagerState extends State<LifecycleManager>
     with WidgetsBindingObserver {
-  ConnectivityResult _lastResult = ConnectivityResult.none;
+  List<ConnectivityResult> _connectionStatus = [ConnectivityResult.none];
+  final Connectivity _connectivity = Connectivity();
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
 
   @override
   void initState() {
@@ -27,35 +31,38 @@ class LifecycleManagerState extends State<LifecycleManager>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _connectivitySubscription.cancel();
     super.dispose();
   }
 
   Future<void> initConnectivity() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    handleConnectivityChange(connectivityResult);
-    Connectivity().onConnectivityChanged.listen(handleConnectivityChange);
+    List<ConnectivityResult> result;
+    try {
+      result = await _connectivity.checkConnectivity();
+      if (!mounted) return;
+      _updateConnectionStatus(result);
+    } on PlatformException catch (e) {
+      print('Couldn\'t check connectivity status : $e');
+    }
+
+    _connectivitySubscription =
+        _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
 
-  void handleConnectivityChange(ConnectivityResult result) {
-    setState(() {
-      _lastResult = result;
-    });
-    if (result == ConnectivityResult.none) {
-      onDisconnected();
-    } else {
-      onConnected(result);
+  Future<void> _updateConnectionStatus(List<ConnectivityResult> result) async {
+    if (mounted) {
+      setState(() {
+        _connectionStatus = result;
+      });
     }
   }
 
-  void onConnected(ConnectivityResult result) {
-    print(
-        "Connected to ${result == ConnectivityResult.mobile ? 'Mobile' : 'WiFi'}");
-    // Implement actions to take when connected, like fetching data or enabling features
+  void onConnected() {
+    print("Connected: ${_connectionStatus.join(", ")}");
   }
 
   void onDisconnected() {
-    print("No connectivity");
-    // Implement actions to take when disconnected, like notifying the user or disabling features
+    print("Disconnected");
   }
 
   @override
@@ -74,7 +81,6 @@ class LifecycleManagerState extends State<LifecycleManager>
         onDetached();
         break;
       default:
-        // Optionally handle unknown states or do nothing
         print("Unknown state: $state");
         break;
     }
@@ -82,22 +88,19 @@ class LifecycleManagerState extends State<LifecycleManager>
 
   void onResume() {
     print("App Resumed");
-    // Additional actions on resume can go here
+    initConnectivity();
   }
 
   void onPause() {
     print("App Paused");
-    // Additional actions on pause can go here
   }
 
   void onInactive() {
     print("App Inactive");
-    // Additional actions on inactive can go here
   }
 
   void onDetached() {
     print("App Detached");
-    // Additional actions on detached can go here
   }
 
   @override
